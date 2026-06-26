@@ -1,0 +1,95 @@
+@import "tailwindcss";
+
+/*
+  Design system de La Manito Del Vegano — migrado fielmente del sitio original.
+  Paleta: fondo casi-negro organico + verdes bosque + acento neon menta.
+  Tipografia: Syne (display/marca), Space Grotesk (cuerpo/UI), Fraunces (titulos editoriales).
+*/
+
+:root {
+  --v1: #1b4332;
+  --v2: #2d6a4f;
+  --v3: #40916c;
+  --v4: #52b788;
+  --v5: rgba(45, 106, 79, 0.08);
+  --neon: #00ffb3;
+  --crema: #fcfbf7;
+  --texto: #e8f0ec;
+  --muted: #7a9b8a;
+  --borde: rgba(0, 255, 179, 0.1);
+  --wa: #25d366;
+  --wa2: #1da851;
+  --mp: #009ee3;
+  --rojo: #ef4444;
+  --am: #f59e0b;
+  --gold: #d4af37;
+  --fondo: #030907;
+}
+
+@theme inline {
+  --color-v1: var(--v1);
+  --color-v2: var(--v2);
+  --color-v3: var(--v3);
+  --color-v4: var(--v4);
+  --color-neon: var(--neon);
+  --color-crema: var(--crema);
+  --color-texto: var(--texto);
+  --color-muted: var(--muted);
+  --color-wa: var(--wa);
+  --color-mp: var(--mp);
+  --color-rojo: var(--rojo);
+  --color-am: var(--am);
+  --color-gold: var(--gold);
+  --color-fondo: var(--fondo);
+
+  --font-display: var(--font-syne);
+  --font-body: var(--font-space-grotesk);
+  --font-serif: var(--font-fraunces);
+}
+
+body {
+  background: var(--fondo);
+  color: var(--texto);
+  font-family: var(--font-space-grotesk), sans-serif;
+  overflow-x: hidden;
+}
+
+.glass {
+  background: rgba(3, 9, 7, 0.85);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  border: 1px solid var(--borde);
+}
+
+.pill {
+  display: inline-block;
+  background: rgba(0, 255, 179, 0.08);
+  color: var(--neon);
+  padding: 4px 13px;
+  border-radius: 50px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  border: 1px solid rgba(0, 255, 179, 0.2);
+}
+
+@keyframes orbita1 {
+  0% { transform: translate(0, 0) rotate(0deg); }
+  50% { transform: translate(100px, 50px) rotate(180deg); }
+  100% { transform: translate(0, 0) rotate(360deg); }
+}
+@keyframes orbita2 {
+  0% { transform: translate(0, 0) rotate(0deg); }
+  50% { transform: translate(-80px, -60px) rotate(-180deg); }
+  100% { transform: translate(0, 0) rotate(-360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
