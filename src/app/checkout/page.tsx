@@ -7,7 +7,7 @@ import { useCart } from '@/lib/cart/CartContext';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import type { Zona } from '@/types/domain';
 
-export default function CheckoutPage() {
+function CheckoutContent() {
   const router = useRouter();
   const { items, subtotal, clearCart } = useCart();
 
@@ -227,4 +227,12 @@ export default function CheckoutPage() {
       </main>
     </SiteShell>
   );
+}
+
+// Esta página depende del carrito del navegador y de datos en tiempo real
+// (zonas), así que no tiene sentido cachearla como estática.
+export const dynamic = 'force-dynamic';
+
+export default function CheckoutPage() {
+  return <CheckoutContent />;
 }
