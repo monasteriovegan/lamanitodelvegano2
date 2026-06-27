@@ -16,7 +16,24 @@ interface CartContextValue {
   subtotal: number;
 }
 
-const CartContext = createContext<CartContextValue | null>(null);
+const noopCartContext: CartContextValue = {
+  items: [],
+  isOpen: false,
+  openCart: () => {},
+  closeCart: () => {},
+  addItem: () => {},
+  changeQty: () => {},
+  removeItem: () => {},
+  clearCart: () => {},
+  count: 0,
+  subtotal: 0,
+};
+
+// Valor por defecto seguro (no null) para que cualquier intento de
+// pre-renderizar/SSR un componente que use useCart() sin <CartProvider>
+// no truene el build — simplemente se comporta como un carrito vacío
+// hasta que el cliente hidrate dentro del Provider real.
+const CartContext = createContext<CartContextValue>(noopCartContext);
 
 // Una "key" identifica un item único en el carrito: mismo producto pero
 // distinto formato/variedad cuenta como línea separada (igual que el original).
@@ -73,9 +90,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 }
 
 export function useCart() {
-  const ctx = useContext(CartContext);
-  if (!ctx) throw new Error('useCart debe usarse dentro de <CartProvider>');
-  return ctx;
+  return useContext(CartContext);
 }
 
 export { itemKey };
