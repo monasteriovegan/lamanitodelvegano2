@@ -8,6 +8,8 @@ import { createSupabaseServiceClient } from '@/lib/supabase/server';
  * dirección, teléfono de todos los clientes) solo para calcular puntos de uno.
  * AHORA: el cálculo ocurre 100% en el servidor; el navegador solo recibe el
  * resultado agregado (puntos disponibles, si tiene PIN registrado).
+ *
+ * Usa columnas reales en camelCase (total, descuentoFidelidad, puntosCanjeados).
  */
 
 export function getClienteIdentifier(email?: string, telefono?: string): string | null {
@@ -17,7 +19,6 @@ export function getClienteIdentifier(email?: string, telefono?: string): string 
 }
 
 function hashPin(pin: string, identifier: string): string {
-  // Hash simple con salt = identifier, evita texto plano en BD.
   return createHash('sha256').update(`${identifier}:${pin}:lmv-salt-v1`).digest('hex');
 }
 
@@ -27,12 +28,12 @@ export async function consultarPuntosCliente(email?: string, telefono?: string) 
 
   const supabase = createSupabaseServiceClient();
 
-  const { data: ajustes } = await supabase.from('ajustes').select('*').eq('id', 'global').maybeSingle();
-  const tasaPuntos = ajustes?.tasa_puntos || 1000;
+  const { data: ajustesRow } = await supabase.from('ajustes').select('data').eq('id', 'global').maybeSingle();
+  const tasaPuntos = ajustesRow?.data?.tasaPuntos || 1000;
 
   const { data: pedidos, error } = await supabase
     .from('pedidos')
-    .select('total, descuento_fidelidad, puntos_canjeados, status, cliente')
+    .select('total, descuentoFidelidad, puntosCanjeados, status, cliente')
     .or(`cliente->>email.eq.${email?.trim().toLowerCase() || ''},cliente->>telefono.eq.${telefono?.trim() || ''}`);
 
   if (error) return { ok: false as const, error: 'Error al consultar pedidos.' };
@@ -41,9 +42,9 @@ export async function consultarPuntosCliente(email?: string, telefono?: string) 
   let totalCanjeados = 0;
   for (const p of pedidos || []) {
     if (p.status !== 'Cancelado' && p.status !== 'Pendiente') {
-      totalGanados += Math.floor((p.total + (p.descuento_fidelidad || 0)) / tasaPuntos);
+      totalGanados += Math.floor((p.total + (p.descuentoFidelidad || 0)) / tasaPuntos);
     }
-    totalCanjeados += p.puntos_canjeados || 0;
+    totalCanjeados += p.puntosCanjeados || 0;
   }
 
   const puntosDisponibles = Math.max(0, totalGanados - totalCanjeados);
@@ -69,7 +70,9 @@ export async function registrarPin(email: string | undefined, telefono: string |
   const supabase = createSupabaseServiceClient();
   const pin_hash = hashPin(pin, identifier);
 
-  const { error } = await supabase.from('puntos_pins').upsert({ id: identifier, pin_hash });
+  // Nota: la tabla vieja `puntos_pins` tiene columna `pin` (texto plano). Guardamos
+  // el hash en esa misma columna para no romper el esquema, pero ya nunca en plano.
+  const { error } = await supabase.from('puntos_pins').upsert({ id: identifier, pin: pin_hash });
   if (error) return { ok: false as const, error: 'Error al guardar el PIN.' };
   return { ok: true as const };
 }
@@ -79,9 +82,9 @@ export async function validarPin(email: string | undefined, telefono: string | u
   if (!identifier) return { ok: false as const, error: 'No se pudo identificar al cliente.' };
 
   const supabase = createSupabaseServiceClient();
-  const { data } = await supabase.from('puntos_pins').select('pin_hash').eq('id', identifier).maybeSingle();
+  const { data } = await supabase.from('puntos_pins').select('pin').eq('id', identifier).maybeSingle();
   if (!data) return { ok: false as const, error: 'No hay PIN registrado para este cliente.' };
 
-  const valido = data.pin_hash === hashPin(pin, identifier);
+  const valido = data.pin === hashPin(pin, identifier);
   return { ok: valido, error: valido ? undefined : 'PIN incorrecto.' };
 }

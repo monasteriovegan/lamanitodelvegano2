@@ -11,7 +11,7 @@ export function CatalogoGrid({ productos, categorias }: { productos: Producto[];
 
   const productosFiltrados = useMemo(() => {
     if (catActiva === 'todos') return productos;
-    return productos.filter((p) => p.categoria_id === catActiva);
+    return productos.filter((p) => p.categoria === catActiva);
   }, [productos, catActiva]);
 
   return (
@@ -32,9 +32,9 @@ export function CatalogoGrid({ productos, categorias }: { productos: Producto[];
         {categorias.map((cat) => (
           <button
             key={cat.id}
-            onClick={() => setCatActiva(cat.id)}
+            onClick={() => setCatActiva(cat.nombre)}
             className={`whitespace-nowrap px-4 py-[7px] rounded-full border text-[11px] font-semibold transition-all ${
-              catActiva === cat.id
+              catActiva === cat.nombre
                 ? 'bg-neon border-neon text-[#020705] shadow-[0_0_10px_rgba(0,255,179,0.2)]'
                 : 'border-[rgba(0,255,179,0.2)] bg-[rgba(0,255,179,0.04)] text-white/80'
             }`}

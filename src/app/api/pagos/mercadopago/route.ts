@@ -38,11 +38,11 @@ export async function POST(req: NextRequest) {
     currency_id: 'CLP',
   }));
 
-  if (pedido.costo_envio > 0) {
+  if (pedido.costoEnvio > 0) {
     items.push({
-      title: `Despacho: ${pedido.zona_envio || 'Zona seleccionada'}`,
+      title: `Despacho: ${pedido.zonaEnvio || 'Zona seleccionada'}`,
       quantity: 1,
-      unit_price: pedido.costo_envio,
+      unit_price: pedido.costoEnvio,
       currency_id: 'CLP',
     });
   }

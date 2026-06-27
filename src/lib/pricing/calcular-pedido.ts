@@ -20,6 +20,9 @@ export interface ResultadoCalculo {
  * Recalcula TODO el pedido desde cero usando los precios y reglas reales
  * de la base de datos. El frontend solo manda IDs y cantidades — nunca precios.
  * Esto es lo que cierra la vulnerabilidad de manipulación de precios del sitio viejo.
+ *
+ * Nota: usa la estructura REAL de la BD compartida con el sitio viejo
+ * (id de producto es text, no uuid; cupones.minMonto en camelCase).
  */
 export async function calcularPedido(req: CheckoutRequest): Promise<ResultadoCalculo> {
   const supabase = createSupabaseServiceClient();
@@ -28,7 +31,6 @@ export async function calcularPedido(req: CheckoutRequest): Promise<ResultadoCal
     return { ok: false, error: 'El carrito está vacío.' };
   }
 
-  // 1. Traer productos reales desde la BD (ignora cualquier precio que mande el cliente)
   const productIds = req.items.map((i) => i.productoId);
   const { data: productos, error: prodErr } = await supabase
     .from('productos')
@@ -53,12 +55,10 @@ export async function calcularPedido(req: CheckoutRequest): Promise<ResultadoCal
       return { ok: false, error: 'Cantidad inválida en el carrito.' };
     }
 
-    // Validar stock si el producto lo maneja
-    if (prod.maneja_stock && prod.stock < reqItem.qty) {
+    if (prod.maneja_stock && (prod.stock ?? 0) < reqItem.qty) {
       return { ok: false, error: `Stock insuficiente para "${prod.nombre}". Disponible: ${prod.stock}.` };
     }
 
-    // Resolver precio real según formato, usando SIEMPRE el precio de la BD, nunca el del cliente
     const formatos = parseFormatos(prod.gramaje, prod.precio);
     let precioUnitario = prod.precio;
     if (reqItem.formato) {
@@ -82,7 +82,6 @@ export async function calcularPedido(req: CheckoutRequest): Promise<ResultadoCal
 
   const subtotal = itemsResueltos.reduce((sum, i) => sum + i.precio * i.qty, 0);
 
-  // 2. Costo de envío real desde BD
   let costoEnvio = 0;
   let zonaNombre: string | null = null;
   if (req.zonaId) {
@@ -93,7 +92,6 @@ export async function calcularPedido(req: CheckoutRequest): Promise<ResultadoCal
     }
   }
 
-  // 3. Cupón — validado contra BD, nunca confiado del cliente
   let descuentoCupon = 0;
   let cuponValido: { code: string; tipo: string } | null = null;
   if (req.cuponCode) {
@@ -104,7 +102,7 @@ export async function calcularPedido(req: CheckoutRequest): Promise<ResultadoCal
       .eq('activo', true)
       .maybeSingle();
 
-    if (cupon && subtotal >= (cupon.min_monto || 0)) {
+    if (cupon && subtotal >= (cupon.minMonto || 0)) {
       if (cupon.tipo === 'fijo') {
         descuentoCupon = Math.min(subtotal, parseInt(cupon.valor, 10));
       } else if (cupon.tipo === 'porcentaje') {
@@ -113,18 +111,15 @@ export async function calcularPedido(req: CheckoutRequest): Promise<ResultadoCal
         descuentoCupon = itemsResueltos
           .filter(
             (item) =>
-              item.nombre.toLowerCase().includes(cupon.valor.toLowerCase()) ||
-              item.productoId === cupon.valor
+              item.nombre.toLowerCase().includes(cupon.valor.toLowerCase()) || item.productoId === cupon.valor
           )
           .reduce((sum, item) => sum + Math.floor(item.qty / 2) * item.precio, 0);
       }
-      // tipo 'regalo' no descuenta dinero; se maneja como item gratis aparte
       cuponValido = { code: cupon.id, tipo: cupon.tipo };
     }
   }
 
-  // 4. Fidelidad — recalculada server-side contra historial real, con PIN verificado aparte
-  const descuentoFidelidad = req.canjearPuntos ? 0 : 0; // se resuelve en checkout.ts con verificación de PIN
+  const descuentoFidelidad = req.canjearPuntos ? 0 : 0; // se resuelve en checkout con verificación de PIN
 
   const total = Math.max(0, subtotal + costoEnvio - descuentoCupon - descuentoFidelidad);
 

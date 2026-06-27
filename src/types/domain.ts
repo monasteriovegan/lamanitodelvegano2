@@ -12,7 +12,7 @@ export type TipoCupon = 'fijo' | 'porcentaje' | 'bogo' | 'regalo';
 export type Etiqueta = 'nuevo' | 'oferta' | 'estrella' | 'promo' | null;
 
 export interface Categoria {
-  id: string;
+  id: string; // text en BD real, no uuid
   nombre: string;
   emoji: string | null;
   slug: string;
@@ -24,26 +24,26 @@ export interface FormatoProducto {
 }
 
 export interface Producto {
-  id: string;
+  id: string; // text en BD real, no uuid
   nombre: string;
-  descripcion_corta: string | null;
-  descripcion_larga: string | null;
+  descripcion: string | null; // columna real es 'descripcion', no descripcion_corta/larga
   precio: number;
   precio_anterior: number | null;
   costo: number | null;
-  categoria_id: string | null;
+  categoria: string | null; // texto libre en la BD real, no FK
   emoji: string | null;
   etiqueta: Etiqueta;
+  etiqueta_label: string | null;
   color_fondo: string | null;
   imagen_url: string | null;
   destacado: boolean;
   maneja_stock: boolean;
-  stock: number;
+  stock: number | null;
   gluten_free: boolean;
   nut_free: boolean;
-  disponibilidad: string[] | null; // fechas ISO especiales, null = sin restricción
-  gramaje: string | null; // string crudo de formatos, ej "250g:6500,500g:12000"
-  variedades: string | null; // sabores separados por coma
+  disponibilidad: string | null; // texto en BD real (no array), se parsea si se usa
+  gramaje: string | null;
+  variedades: string | null;
   activo: boolean;
 }
 
@@ -54,23 +54,29 @@ export interface Zona {
   precio: number;
 }
 
+// La tabla real `ajustes` guarda todo en una columna `data` JSON (legado del sitio viejo).
+export interface AjustesData {
+  nombre?: string;
+  whatsapp?: string;
+  instagram?: string;
+  tiktok?: string;
+  facebook?: string;
+  estado?: 'abierto' | 'cerrado';
+  tasaPuntos?: number;
+  valorPunto?: number;
+}
+
 export interface AjustesPublicos {
   id: string;
-  nombre: string;
-  whatsapp: string | null;
-  instagram: string | null;
-  tiktok: string | null;
-  facebook: string | null;
-  estado: 'abierto' | 'cerrado';
-  tasa_puntos: number;
-  valor_punto: number;
+  data: AjustesData;
 }
 
 export interface Cupon {
   id: string; // código
+  code: string | null;
   tipo: TipoCupon;
   valor: string;
-  min_monto: number;
+  minMonto: number; // camelCase real en BD
   activo: boolean;
   expira_at: string | null;
 }
@@ -96,19 +102,16 @@ export interface Pedido {
   id: string;
   cliente: ClienteInfo;
   items: ItemCarrito[];
-  subtotal: number;
-  costo_envio: number;
-  descuento_cupon: number;
-  cupon_code: string | null;
-  descuento_fidelidad: number;
-  puntos_canjeados: number;
-  puntos_ganados: number;
   total: number;
-  metodo_pago: string | null;
+  descuentoFidelidad: number;
+  puntosCanjeados: number;
+  puntosGanados: number;
   status: EstadoPedido;
-  fecha_despacho: string | null;
-  zona_envio: string | null;
-  created_at: string;
+  createdAt: string;
+  fechaDespacho: string | null;
+  zonaEnvio: string | null;
+  costoEnvio: number;
+  metodoPago: string | null;
 }
 
 // Payload que el cliente manda a /api/checkout — SOLO intenciones, nunca precios finales.

@@ -5,16 +5,12 @@ import { validarPin } from '@/lib/pricing/fidelidad';
 import type { CheckoutRequest } from '@/types/domain';
 
 /**
- * Único punto de entrada para crear un pedido.
- * Reemplaza crearPedido() del app.js viejo, que insertaba directo a Supabase
- * desde el navegador confiando en el total calculado en el cliente.
+ * Único punto de entrada para crear un pedido. Recalcula TODO server-side
+ * contra la base de datos real antes de guardar — el cliente solo manda
+ * intenciones (IDs, cantidades), nunca precios ni totales.
  *
- * Esta ruta:
- * 1. Recibe solo intenciones (IDs, cantidades, código de cupón, etc.)
- * 2. Recalcula TODO server-side contra la base de datos real
- * 3. Verifica el PIN de fidelidad si se quiere canjear puntos
- * 4. Crea el pedido con el total ya validado
- * 5. Descuenta stock de forma atómica
+ * Inserta usando los NOMBRES DE COLUMNA REALES de la tabla `pedidos`
+ * compartida con el sitio viejo (camelCase: zonaEnvio, fechaDespacho, etc.)
  */
 export async function POST(req: NextRequest) {
   const body: CheckoutRequest = await req.json();
@@ -36,21 +32,17 @@ export async function POST(req: NextRequest) {
     if (!pinCheck.ok) {
       return NextResponse.json({ error: pinCheck.error }, { status: 400 });
     }
-    // El descuento de fidelidad real se aplica con los puntos disponibles reales
-    // (se vuelve a consultar aquí para evitar cualquier inconsistencia de timing)
     const { consultarPuntosCliente } = await import('@/lib/pricing/fidelidad');
     const puntos = await consultarPuntosCliente(body.cliente.email, body.cliente.telefono);
     if (puntos.ok && puntos.puntosDisponibles > 0) {
       const supabase = createSupabaseServiceClient();
-      const { data: ajustes } = await supabase.from('ajustes').select('valor_punto').eq('id', 'global').maybeSingle();
-      const valorPunto = ajustes?.valor_punto || 100;
+      const { data: ajustesRow } = await supabase.from('ajustes').select('data').eq('id', 'global').maybeSingle();
+      const valorPunto = ajustesRow?.data?.valorPunto || 100;
       puntosCanjeados = puntos.puntosDisponibles;
       descuentoFidelidad = puntosCanjeados * valorPunto;
     }
   }
 
-  // calculo.total ya viene con descuentoFidelidad=0 por defecto (se resuelve recién aquí
-  // tras verificar el PIN), así que el total real se recalcula con el descuento de fidelidad ya validado.
   const totalConFidelidad = Math.max(
     0,
     (calculo.subtotal || 0) + (calculo.costoEnvio || 0) - (calculo.descuentoCupon || 0) - descuentoFidelidad
@@ -58,7 +50,6 @@ export async function POST(req: NextRequest) {
 
   const supabase = createSupabaseServiceClient();
 
-  // Items finales, incluyendo el regalo si el cupón es tipo "regalo"
   const itemsFinales = [...(calculo.itemsResueltos || [])];
   if (calculo.cuponValido?.tipo === 'regalo') {
     itemsFinales.push({
@@ -75,17 +66,14 @@ export async function POST(req: NextRequest) {
     .insert({
       cliente: body.cliente,
       items: itemsFinales,
-      subtotal: calculo.subtotal,
-      costo_envio: calculo.costoEnvio,
-      descuento_cupon: calculo.descuentoCupon,
-      cupon_code: calculo.cuponValido?.code || null,
-      descuento_fidelidad: descuentoFidelidad,
-      puntos_canjeados: puntosCanjeados,
-      puntos_ganados: 0,
       total: totalConFidelidad,
-      metodo_pago: body.metodoPago,
+      descuentoFidelidad: descuentoFidelidad,
+      puntosCanjeados: puntosCanjeados,
+      puntosGanados: 0,
       status: body.metodoPago === 'whatsapp' ? 'WhatsApp' : 'Pendiente',
-      zona_envio: calculo.zonaNombre,
+      zonaEnvio: calculo.zonaNombre,
+      costoEnvio: calculo.costoEnvio,
+      metodoPago: body.metodoPago,
     })
     .select()
     .single();
@@ -95,7 +83,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No se pudo crear el pedido.' }, { status: 500 });
   }
 
-  // Descontar stock de forma atómica (RPC en Postgres evita race conditions)
   for (const item of calculo.itemsResueltos || []) {
     await supabase.rpc('descontar_stock', { p_producto_id: item.productoId, p_cantidad: item.qty });
   }

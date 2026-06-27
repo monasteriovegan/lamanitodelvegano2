@@ -87,8 +87,8 @@ export function ProductDetailModal({ producto, onClose }: { producto: Producto; 
         </div>
 
         <h2 className="font-display font-bold text-xl text-white mb-1">{producto.nombre}</h2>
-        {producto.descripcion_larga && (
-          <p className="text-sm text-white/75 leading-relaxed mb-3">{producto.descripcion_larga}</p>
+        {producto.descripcion && (
+          <p className="text-sm text-white/75 leading-relaxed mb-3">{producto.descripcion}</p>
         )}
 
         <div className="flex gap-1.5 mb-4 flex-wrap">

@@ -68,9 +68,9 @@ export function ProductCard({ producto, onOpenDetail }: { producto: Producto; on
 
       <div className="px-3 pb-3 pt-2.5">
         <h3 className="font-body font-bold text-[13px] mb-0.5 text-white">{producto.nombre}</h3>
-        {producto.descripcion_corta && (
+        {producto.descripcion && (
           <p className="text-[11px] text-white/90 font-semibold mb-2 leading-snug line-clamp-2">
-            {producto.descripcion_corta}
+            {producto.descripcion}
           </p>
         )}
 
